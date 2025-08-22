@@ -13,21 +13,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0; // Index de la tab sélectionnée (démarre sur Accueil)
+  int _selectedIndex = 0;
 
-  // Liste des widgets pour chaque tab
-  static const List<Widget> _widgetOptions = <Widget>[
-    AccueilTab(), // Tab Accueil
-    VaguesTab(), // Tab Vagues
-    TraitementsTab(), // Tab Traitements
-    VaccinsTab(), // Tab Vaccins
-    ParametresTab(), // Tab Paramètres
-  ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index; // Change la tab sélectionnée
-    });
+  // Fonction pour re-rendre les onglets
+  void _refreshTabs() {
+    setState(() {});
   }
 
   @override
@@ -35,35 +25,30 @@ class HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: _widgetOptions, // Affiche la tab sélectionnée
+        children: [
+          AccueilTab(),
+          VaguesTab(onDataUpdated: _refreshTabs),
+          TraitementsTab(),
+          VaccinsTab(),
+          ParametresTab(),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home), // Icône maison pour Accueil
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group), // Icône groupe pour Vagues (lots)
-            label: 'Vagues',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.medical_services), // Icône médicale pour Traitements
-            label: 'Traitements',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.vaccines), // Icône seringue pour Vaccins
-            label: 'Vaccins',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings), // Icône engrenage pour Paramètres
-            label: 'Paramètres',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Vagues'),
+          BottomNavigationBarItem(icon: Icon(Icons.medical_services), label: 'Traitements'),
+          BottomNavigationBarItem(icon: Icon(Icons.vaccines), label: 'Vaccins'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Paramètres'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.green[700],
         unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
         type: BottomNavigationBarType.fixed,
       ),
     );

@@ -24,6 +24,7 @@ class CreateVagueScreenState extends State<CreateVagueScreen> {
       final newVague = Vague(
         nom: nomVague,
         dateEnregistrement: dateEnregistrement!,
+        dateArrivee: dateEnregistrement!, // Ajout de dateArrivee, à adapter si besoin
         nombreVivant: nombreVivant,
         nombreMort: nombreMort,
         nombreJours: nombreJours,

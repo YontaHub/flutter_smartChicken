@@ -1,9 +1,11 @@
+
 class Vague {
-  final String nom;
-  final DateTime dateEnregistrement;
-  final int nombreVivant;
-  final int nombreMort;
-  final int nombreJours;
+  String nom;
+  DateTime dateEnregistrement;
+  int nombreVivant;
+  int nombreMort;
+  int nombreJours;
+  final int vagueId; // Ajout d'un ID unique
 
   Vague({
     required this.nom,
@@ -11,5 +13,10 @@ class Vague {
     required this.nombreVivant,
     required this.nombreMort,
     required this.nombreJours,
-  });
+    required DateTime dateArrivee,
+    int? vagueId, // Optionnel pour permettre une génération automatique
+  }) : vagueId = vagueId ?? DateTime.now().millisecondsSinceEpoch; // Générer un ID unique par défaut
+
+  // Calcul de la date d'arrivée (dateEnregistrement + nombreJours)
+  DateTime get dateArrivee => dateEnregistrement.add(Duration(days: nombreJours));
 }
