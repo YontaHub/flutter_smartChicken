@@ -18,69 +18,72 @@ class VaguesTab extends StatefulWidget {
 }
 
 class VaguesTabState extends State<VaguesTab> {
-  final List<Vague> _vagues = [];
+  final GlobalKey _key = GlobalKey(); // Clé pour forcer le re-rendu
 
-  void _addVague(Vague vague) {
-    setState(() {
-      _vagues.add(vague);
-      DataManager().addVague(vague); // Ajouter la vague à DataManager
-    });
-    if (widget.onDataUpdated != null) {
-      widget.onDataUpdated!();
-    }
-  }
+  @override
+  Widget build(BuildContext context) {
+    // Recharger _vagues à partir de DataManager à chaque build
+    final List<Vague> vagues = List.from(DataManager().vagues);
 
-  Future<void> _deleteVague(int index) async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Confirmer la suppression'),
-          content: Text('Êtes-vous sûr de vouloir supprimer cette vague ? Cette action est irréversible.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('Annuler', style: TextStyle(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text('Supprimer', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm == true) {
+    void addVague(Vague vague) {
       setState(() {
-        final vagueToRemove = _vagues[index];
-        _vagues.removeAt(index);
-        DataManager().vagues.removeWhere((v) => v.vagueId == vagueToRemove.vagueId); // Supprimer par vagueId
+        DataManager().addVague(vague);
       });
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Vague supprimée avec succès')),
-      );
       if (widget.onDataUpdated != null) {
         widget.onDataUpdated!();
       }
     }
-  }
 
-  void _registerDeath(int index) {
-    setState(() {
-      if (_vagues[index].nombreVivant > 0) {
-        _vagues[index].nombreMort += 1;
+    Future<void> deleteVague(int index) async {
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Confirmer la suppression'),
+            content: Text('Êtes-vous sûr de vouloir supprimer cette vague ? Cette action est irréversible.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Annuler', style: TextStyle(color: Colors.grey)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Supprimer', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirm == true) {
+        setState(() {
+          final vagueToRemove = vagues[index];
+          DataManager().vagues.removeWhere((v) => v.vagueId == vagueToRemove.vagueId);
+        });
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Vague supprimée avec succès')),
+        );
+        if (widget.onDataUpdated != null) {
+          widget.onDataUpdated!();
+        }
       }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Un sujet est marqué comme décédé')),
-    );
-  }
+    }
 
-  @override
-  Widget build(BuildContext context) {
+    void registerDeath(int index) {
+      setState(() {
+        if (vagues[index].nombreVivant > 0) {
+          vagues[index].nombreMort += 1;
+          DataManager().vagues[index] = vagues[index]; // Mettre à jour DataManager
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Un sujet est marqué comme décédé')),
+      );
+    }
+
     return Padding(
+      key: _key, // Utiliser la clé pour forcer le re-rendu
       padding: const EdgeInsets.all(16.0),
       child: SingleChildScrollView(
         child: Column(
@@ -100,7 +103,7 @@ class VaguesTabState extends State<VaguesTab> {
                   MaterialPageRoute(builder: (context) => CreateVagueScreen()),
                 );
                 if (result != null && result is Vague) {
-                  _addVague(result);
+                  addVague(result);
                 }
               },
               color: Colors.green,
@@ -114,9 +117,9 @@ class VaguesTabState extends State<VaguesTab> {
             ListView.builder(
               shrinkWrap: true,
               physics: NeverScrollableScrollPhysics(),
-              itemCount: _vagues.length,
+              itemCount: vagues.length,
               itemBuilder: (context, index) {
-                final vague = _vagues[index];
+                final vague = vagues[index];
                 int nombreTotal = vague.nombreVivant - vague.nombreMort;
                 double progressionJours = vague.nombreJours / 45.0;
 
@@ -143,7 +146,7 @@ class VaguesTabState extends State<VaguesTab> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => PlanVaccinScreen(vagueId: vague.vagueId), // Passer vagueId réel
+                                      builder: (context) => PlanVaccinScreen(vagueId: vague.vagueId),
                                     ),
                                   ).then((result) {
                                     if (result != null && result is Vaccin) {
@@ -157,7 +160,7 @@ class VaguesTabState extends State<VaguesTab> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => PlanTraitementScreen(vagueId: vague.vagueId), // Passer vagueId réel
+                                      builder: (context) => PlanTraitementScreen(vagueId: vague.vagueId),
                                     ),
                                   ).then((result) {
                                     if (result != null && result is Traitement) {
@@ -168,9 +171,9 @@ class VaguesTabState extends State<VaguesTab> {
                                     }
                                   });
                                 } else if (value == 'delete') {
-                                  _deleteVague(index);
+                                  deleteVague(index);
                                 } else if (value == 'death') {
-                                  _registerDeath(index);
+                                  registerDeath(index);
                                 }
                               },
                               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[

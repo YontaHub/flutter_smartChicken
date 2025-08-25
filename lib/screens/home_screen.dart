@@ -16,9 +16,11 @@ class HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   // Fonction pour re-rendre les onglets
-  void _refreshTabs() {
-    setState(() {});
-  }
+  // void _refreshTabs() {
+  //   setState(() {
+  //     print("Tabs refreshed, current index: $_selectedIndex"); // Débogage
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class HomeScreenState extends State<HomeScreen> {
         index: _selectedIndex,
         children: [
           AccueilTab(),
-          VaguesTab(onDataUpdated: _refreshTabs),
+          VaguesTab(),
           TraitementsTab(),
           VaccinsTab(),
           ParametresTab(),

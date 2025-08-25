@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../screens/create_vague_screen.dart';
 import '../widgets/card_widget.dart';
+import '../models/data_manager.dart';
+import '../models/vague.dart';
 
 class AccueilTab extends StatelessWidget {
-  const AccueilTab({super.key});
+  final Function()? onDataUpdated; // Ajouter le callback
+
+  const AccueilTab({super.key, this.onDataUpdated});
 
   @override
   Widget build(BuildContext context) {
@@ -72,11 +76,17 @@ class AccueilTab extends StatelessWidget {
                     buildActionCard(
                       icon: Icons.add,
                       title: 'Créer une vague',
-                      onTap: () {
-                        Navigator.push(
+                      onTap: () async {
+                        final result = await Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => CreateVagueScreen()),
                         );
+                        if (result != null && result is Vague) {
+                          DataManager().addVague(result); // Ajouter la vague à DataManager
+                          if (onDataUpdated != null) {
+                            onDataUpdated!(); // Notifier la mise à jour
+                          }
+                        }
                       },
                       color: Colors.green,
                     ),
