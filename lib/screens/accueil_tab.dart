@@ -3,26 +3,26 @@ import '../screens/create_vague_screen.dart';
 import '../widgets/card_widget.dart';
 import '../models/data_manager.dart';
 import '../models/vague.dart';
+import 'chat_screen.dart'; // Nouvelle page de chat
 
 class AccueilTab extends StatelessWidget {
-  final Function()? onDataUpdated; // Ajouter le callback
+  final Function()? onDataUpdated;
 
   const AccueilTab({super.key, this.onDataUpdated});
 
   @override
   Widget build(BuildContext context) {
-    // Simule des données pour l'instant (à remplacer par Firebase plus tard)
     final data = {
-      'vaguesActives': {'count': 3},
+      'vaguesActives': {'count': DataManager().vagues.length},
       'totalSujets': {'count': 12450},
     };
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Section Vue d'ensemble
             Text(
               'Vue d\'ensemble',
               style: TextStyle(fontSize: 24.0, fontWeight: FontWeight.bold),
@@ -55,8 +55,7 @@ class AccueilTab extends StatelessWidget {
                 );
               },
             ),
-            SizedBox(height: 24.0), // Espacement entre sections
-            // Section Actions rapides
+            SizedBox(height: 24.0),
             Text(
               'Actions rapides',
               style: TextStyle(fontSize: 24.0, fontWeight: FontWeight.bold),
@@ -82,11 +81,22 @@ class AccueilTab extends StatelessWidget {
                           MaterialPageRoute(builder: (context) => CreateVagueScreen()),
                         );
                         if (result != null && result is Vague) {
-                          DataManager().addVague(result); // Ajouter la vague à DataManager
+                          DataManager().addVague(result);
                           if (onDataUpdated != null) {
-                            onDataUpdated!(); // Notifier la mise à jour
+                            onDataUpdated!();
                           }
                         }
+                      },
+                      color: Colors.green,
+                    ),
+                    buildActionCard(
+                      icon: Icons.chat,
+                      title: 'Parler à l\'IA',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ChatScreen()),
+                        );
                       },
                       color: Colors.green,
                     ),
