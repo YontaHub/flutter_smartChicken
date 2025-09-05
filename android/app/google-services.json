@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "42249373538",
+    "project_id": "smartchickapp",
+    "storage_bucket": "smartchickapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:42249373538:android:bfb23350a4ffd36a69ce3b",
+        "android_client_info": {
+          "package_name": "com.example.smart_chick"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0B_EzuMhVcr0Bt6L5KpIIdhxJHck3r6k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:42249373538:android:2cd1f4b5d82c24f469ce3b",
+        "android_client_info": {
+          "package_name": "com.manns.smart_chick"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0B_EzuMhVcr0Bt6L5KpIIdhxJHck3r6k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

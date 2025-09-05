@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart'; // Pour retour au login
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'login_screen.dart';
+import '../models/user.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,25 +13,73 @@ class RegisterScreen extends StatefulWidget {
 
 class RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  String nom = '';
-  String email = '';
-  String role = 'fermier'; // Par défaut
-  String telephone = '';
-  String password = '';
-  bool _isPasswordVisible = false; // Pour toggle visibilité
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
-  void _register() {
+  Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      // Logique de création (à remplacer par Firebase)
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Inscription réussie pour $nom')),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => LoginScreen()),
-      );
+      setState(() => _isLoading = true);
+      try {
+        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+        if (userCredential.user == null) {
+          throw FirebaseAuthException(code: 'unknown', message: 'Utilisateur non créé');
+        }
+
+        final user = Utilisateur(
+          nom: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          role: 'fermier',
+          telephone: _phoneController.text.trim(),
+          uid: userCredential.user!.uid, // Sûr car vérifié ci-dessus
+        );
+        await FirebaseFirestore.instance
+            .collection('utilisateurs') // Changé de 'users' à 'utilisateurs'
+            .doc(userCredential.user!.uid)
+            .set(user.toMap());
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Inscription réussie pour ${_nameController.text}!')),
+        );
+        Navigator.pushReplacement(
+          // ignore: use_build_context_synchronously
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+      } on FirebaseAuthException catch (e) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur d\'authentification: ${e.message}')),
+        );
+      } on FirebaseException catch (e) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur Firestore: ${e.message}')),
+        );
+      } catch (e) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur inattendue: $e')),
+        );
+      } finally {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -62,6 +113,7 @@ class RegisterScreenState extends State<RegisterScreen> {
                     ),
                     SizedBox(height: 24.0),
                     TextFormField(
+                      controller: _nameController,
                       decoration: InputDecoration(
                         labelText: 'Nom',
                         prefixIcon: Icon(Icons.person_outline),
@@ -71,10 +123,10 @@ class RegisterScreenState extends State<RegisterScreen> {
                         if (value == null || value.isEmpty) return 'Entrez un nom';
                         return null;
                       },
-                      onSaved: (value) => nom = value ?? '',
                     ),
                     SizedBox(height: 16.0),
                     TextFormField(
+                      controller: _emailController,
                       decoration: InputDecoration(
                         labelText: 'Adresse email',
                         prefixIcon: Icon(Icons.mail_outline),
@@ -86,28 +138,20 @@ class RegisterScreenState extends State<RegisterScreen> {
                         if (!value.contains('@')) return 'Email invalide';
                         return null;
                       },
-                      onSaved: (value) => email = value ?? '',
                     ),
                     SizedBox(height: 16.0),
-                    DropdownButtonFormField<String>(
+                    TextFormField(
+                      initialValue: 'fermier',
                       decoration: InputDecoration(
                         labelText: 'Rôle',
                         prefixIcon: Icon(Icons.work_outline),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
                       ),
-                      value: role,
-                      items: ['fermier', 'admin'].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() => role = value ?? 'fermier');
-                      },
+                      enabled: false, // Grisé
                     ),
                     SizedBox(height: 16.0),
                     TextFormField(
+                      controller: _phoneController,
                       decoration: InputDecoration(
                         labelText: 'Téléphone',
                         prefixIcon: Icon(Icons.phone_outlined),
@@ -119,10 +163,10 @@ class RegisterScreenState extends State<RegisterScreen> {
                         if (value.length < 9) return 'Numéro invalide';
                         return null;
                       },
-                      onSaved: (value) => telephone = value ?? '',
                     ),
                     SizedBox(height: 16.0),
                     TextFormField(
+                      controller: _passwordController,
                       decoration: InputDecoration(
                         labelText: 'Mot de passe',
                         prefixIcon: Icon(Icons.lock_outline),
@@ -140,21 +184,22 @@ class RegisterScreenState extends State<RegisterScreen> {
                         if (value.length < 6) return 'Minimum 6 caractères';
                         return null;
                       },
-                      onSaved: (value) => password = value ?? '',
                     ),
                     SizedBox(height: 24.0),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _register,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green[700],
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                          padding: EdgeInsets.symmetric(vertical: 16.0),
-                        ),
-                        child: Text('S\'inscrire', style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
+                    _isLoading
+                        ? Center(child: CircularProgressIndicator())
+                        : SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _register,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green[700],
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                                padding: EdgeInsets.symmetric(vertical: 16.0),
+                              ),
+                              child: Text('S\'inscrire', style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
                     SizedBox(height: 16.0),
                     Center(
                       child: TextButton(

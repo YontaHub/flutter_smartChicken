@@ -1,21 +1,20 @@
+
 class Utilisateur {
   String nom;
   String email;
   String role;
   String telephone;
-
-// Variable globale temporaire pour simuler l'utilisateur connecté (sans Firebase)
-// À remplacer par un state management comme Provider ou Riverpod plus tard
-// Utilisateur? currentUser;
+  String? uid; // Ajouté pour l'identifiant Firebase
 
   Utilisateur({
     required this.nom,
     required this.email,
     required this.role,
     required this.telephone,
+    this.uid,
   });
 
-  // Méthode pour convertir en Map (utile plus tard avec Firebase)
+  // Convertir en Map pour Firestore
   Map<String, dynamic> toMap() {
     return {
       'nom': nom,
@@ -23,5 +22,16 @@ class Utilisateur {
       'role': role,
       'telephone': telephone,
     };
+  }
+
+  // Créer un Utilisateur à partir d'un document Firestore
+  factory Utilisateur.fromMap(Map<String, dynamic> map, String uid) {
+    return Utilisateur(
+      nom: map['nom'] ?? '',
+      email: map['email'] ?? '',
+      role: map['role'] ?? 'fermier',
+      telephone: map['telephone'] ?? '',
+      uid: uid,
+    );
   }
 }

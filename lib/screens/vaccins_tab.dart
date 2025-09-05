@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/data_manager.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/vaccin.dart';
 
 class VaccinsTab extends StatefulWidget {
   const VaccinsTab({super.key});
@@ -13,7 +15,8 @@ class VaccinsTabState extends State<VaccinsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final vaccins = DataManager().vaccins;
+    final user = FirebaseAuth.instance.currentUser;
+
     return Padding(
       key: _key,
       padding: const EdgeInsets.all(16.0),
@@ -26,26 +29,45 @@ class VaccinsTabState extends State<VaccinsTab> {
           ),
           SizedBox(height: 16.0),
           Expanded(
-            child: ListView.builder(
-              itemCount: vaccins.length,
-              itemBuilder: (context, index) {
-                final vaccin = vaccins[index];
-                final vagueName = DataManager().getVagueName(vaccin.vagueId);
-                return Card(
-                  elevation: 4.0,
-                  margin: EdgeInsets.only(bottom: 16.0),
-                  child: ListTile(
-                    leading: Icon(Icons.vaccines, color: Colors.green),
-                    title: Text(vaccin.nom),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Date Vaccination: ${vaccin.dateVaccination.toString().split(' ')[0]}'),
-                        Text('Initié le: ${vaccin.dateInitiation.toString().split(' ')[0]}'),
-                        Text('Vague: $vagueName'), // Affichage du nom de la vague
-                      ],
-                    ),
-                  ),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('vaccins')
+                  .where('userId', isEqualTo: user?.uid ?? '')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Erreur: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(child: Text('Aucun vaccin trouvé'));
+                }
+                final vaccins = snapshot.data!.docs.map((doc) {
+                  return Vaccin.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+                }).toList();
+                return ListView.builder(
+                  itemCount: vaccins.length,
+                  itemBuilder: (context, index) {
+                    final vaccin = vaccins[index];
+                    return Card(
+                      elevation: 4.0,
+                      margin: EdgeInsets.only(bottom: 16.0),
+                      child: ListTile(
+                        leading: Icon(Icons.vaccines, color: Colors.green),
+                        title: Text(vaccin.nom),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Date Vaccination: ${vaccin.dateVaccination.toString().split(' ')[0]}'),
+                            Text('Initié le: ${vaccin.dateInitiation.toString().split(' ')[0]}'),
+                            Text('Vague: ${vaccin.nom}'), // À remplacer par le nom de la vague si disponible
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),

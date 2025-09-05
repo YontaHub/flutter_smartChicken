@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Ajouté
 import '../models/vaccin.dart';
 
 class PlanVaccinScreen extends StatefulWidget {
@@ -15,18 +16,29 @@ class PlanVaccinScreenState extends State<PlanVaccinScreen> {
   String nomVaccin = '';
   DateTime? dateVaccination = DateTime.now();
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       final newVaccin = Vaccin(
         nom: nomVaccin,
         dateVaccination: dateVaccination!,
         vagueId: widget.vagueId,
+        dateInitiation: DateTime.now(), // Ajout de la date d'initiation
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Vaccin $nomVaccin enregistré avec succès pour la vague ${widget.vagueId}')),
-      );
-      Navigator.pop(context, newVaccin);
+      try {
+        await FirebaseFirestore.instance.collection('vaccins').add(newVaccin.toMap());
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Vaccin $nomVaccin enregistré avec succès pour la vague ${widget.vagueId}')),
+        );
+        // ignore: use_build_context_synchronously
+        Navigator.pop(context, newVaccin);
+      } catch (e) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'enregistrement: $e')),
+        );
+      }
     }
   }
 

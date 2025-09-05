@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Ajouté
 import '../models/traitement.dart';
 
 class PlanTraitementScreen extends StatefulWidget {
@@ -16,7 +17,7 @@ class PlanTraitementScreenState extends State<PlanTraitementScreen> {
   DateTime? dateDebut = DateTime.now();
   DateTime? dateFin = DateTime.now().add(Duration(days: 7));
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       if (dateFin!.isBefore(dateDebut!)) {
@@ -30,11 +31,22 @@ class PlanTraitementScreenState extends State<PlanTraitementScreen> {
         dateDebut: dateDebut!,
         dateFin: dateFin!,
         vagueId: widget.vagueId,
+        dateInitiation: DateTime.now(), // Ajout de la date d'initiation
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Traitement $nomTraitement enregistré avec succès pour la vague ${widget.vagueId}')),
-      );
-      Navigator.pop(context, newTraitement);
+      try {
+        await FirebaseFirestore.instance.collection('traitements').add(newTraitement.toMap());
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Traitement $nomTraitement enregistré avec succès pour la vague')),
+        );
+        // ignore: use_build_context_synchronously
+        Navigator.pop(context, newTraitement);
+      } catch (e) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'enregistrement: $e')),
+        );
+      }
     }
   }
 

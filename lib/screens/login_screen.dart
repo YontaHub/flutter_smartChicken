@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/user.dart'; // Import pour Utilisateur et currentUser
-import 'register_screen.dart'; // Pour navigation vers register
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'register_screen.dart';
+import '../screens/home_screen.dart'; // Assure-toi que ce chemin est correct
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,38 +13,98 @@ class LoginScreen extends StatefulWidget {
 
 class LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  String email = '';
-  String password = '';
-  bool rememberMe = false;
-  bool _isPasswordVisible = false; // Pour toggle visibilité
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _rememberMe = false;
+  bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
-  Utilisateur? currentUser;
+  @override
+  void initState() {
+    super.initState();
+    _checkRememberMe();
+  }
 
-  void _login() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      // Logique de validation manuelle (à remplacer par Firebase)
-      if (email == 'test@example.com' && password == 'password123') {
-        // Simule un user connecté (hardcoded pour l'instant)
-        currentUser = Utilisateur(
-          nom: 'Test User',
-          email: email,
-          role: 'fermier',
-          telephone: '123456789',
+  Future<void> _checkRememberMe() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('rememberMe') ?? false) {
+      final email = prefs.getString('email') ?? '';
+      final password = prefs.getString('password') ?? '';
+      if (email.isNotEmpty && password.isNotEmpty ) {
+        _autoLogin(email, password);
+      }
+    }
+  }
+
+  Future<void> _autoLogin(String email, String password) async {
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomeScreen()),
         );
-        // Redirige vers la page d'accueil (home) après succès
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Email ou mot de passe incorrect')),
+          SnackBar(content: Text('Erreur de connexion automatique: $e')),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _login() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+        if (_rememberMe) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('email', _emailController.text.trim());
+          await prefs.setString('password', _passwordController.text.trim());
+          await prefs.setBool('rememberMe', true);
+        }
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: ${e.message}')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
 
   @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Le build reste le même que précédemment, fidèle au design
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Center(
@@ -70,6 +132,7 @@ class LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 24.0),
                     TextFormField(
+                      controller: _emailController,
                       decoration: InputDecoration(
                         labelText: 'Adresse email',
                         prefixIcon: Icon(Icons.mail_outline),
@@ -81,10 +144,10 @@ class LoginScreenState extends State<LoginScreen> {
                         if (!value.contains('@')) return 'Email invalide';
                         return null;
                       },
-                      onSaved: (value) => email = value ?? '',
                     ),
                     SizedBox(height: 16.0),
                     TextFormField(
+                      controller: _passwordController,
                       decoration: InputDecoration(
                         labelText: 'Mot de passe',
                         prefixIcon: Icon(Icons.lock_outline),
@@ -102,30 +165,31 @@ class LoginScreenState extends State<LoginScreen> {
                         if (value.length < 6) return 'Minimum 6 caractères';
                         return null;
                       },
-                      onSaved: (value) => password = value ?? '',
                     ),
                     SizedBox(height: 8.0),
                     CheckboxListTile(
                       title: Text('Se souvenir de moi'),
-                      value: rememberMe,
+                      value: _rememberMe,
                       onChanged: (bool? value) {
-                        setState(() => rememberMe = value ?? false);
+                        setState(() => _rememberMe = value ?? false);
                       },
                       contentPadding: EdgeInsets.zero,
                     ),
                     SizedBox(height: 16.0),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green[700],
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                          padding: EdgeInsets.symmetric(vertical: 16.0),
-                        ),
-                        child: Text('Se connecter', style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
+                    _isLoading
+                        ? Center(child: CircularProgressIndicator())
+                        : SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _login,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green[700],
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                                padding: EdgeInsets.symmetric(vertical: 16.0),
+                              ),
+                              child: Text('Se connecter', style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
                     SizedBox(height: 16.0),
                     Center(
                       child: TextButton(
@@ -141,7 +205,6 @@ class LoginScreenState extends State<LoginScreen> {
                     Center(
                       child: TextButton(
                         onPressed: () {
-                          // Implémenter réinitialisation mot de passe
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Fonctionnalité à venir')),
                           );

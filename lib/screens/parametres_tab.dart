@@ -1,4 +1,7 @@
-import 'package:flutter/material.dart';// Pour currentUser
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Ajouté pour effacer les prefs
 import 'login_screen.dart'; // Pour déconnexion
 
 class ParametresTab extends StatefulWidget {
@@ -14,15 +17,66 @@ class ParametresTabState extends State<ParametresTab> {
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _telephoneController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void initState() {
     super.initState();
-    // Initialiser les contrôleurs avec les données actuelles de l'utilisateur
-    currentUser = currentUser ?? Utilisateur(nom: 'Utilisateur Par Défaut', email: 'email@example.com', role: 'Utilisateur', telephone: '000-000-0000');
-    _nomController.text = currentUser?.nom ?? '';
-    _emailController.text = currentUser?.email ?? '';
-    _telephoneController.text = currentUser?.telephone ?? '';
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      try {
+        final doc = await _firestore.collection('utilisateurs').doc(user.uid).get();
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+          setState(() {
+            currentUser = Utilisateur(
+              nom: data['nom'] ?? 'Utilisateur Par Défaut',
+              email: data['email'] ?? user.email ?? 'email@example.com',
+              role: data['role'] ?? 'Utilisateur',
+              telephone: data['telephone'] ?? '000-000-0000',
+            );
+            _nomController.text = currentUser!.nom;
+            _emailController.text = currentUser!.email;
+            _telephoneController.text = currentUser!.telephone;
+          });
+        } else {
+          await _firestore.collection('utilisateurs').doc(user.uid).set({
+            'nom': 'Utilisateur Par Défaut',
+            'email': user.email ?? 'email@example.com',
+            'role': 'Utilisateur',
+            'telephone': '000-000-0000',
+          });
+          setState(() {
+            currentUser = Utilisateur(
+              nom: 'Utilisateur Par Défaut',
+              email: user.email ?? 'email@example.com',
+              role: 'Utilisateur',
+              telephone: '000-000-0000',
+            );
+            _nomController.text = currentUser!.nom;
+            _emailController.text = currentUser!.email;
+            _telephoneController.text = currentUser!.telephone;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur lors du chargement des données: $e')),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Aucun utilisateur connecté. Veuillez vous connecter.')),
+        );
+      }
+    }
   }
 
   @override
@@ -33,19 +87,67 @@ class ParametresTabState extends State<ParametresTab> {
     super.dispose();
   }
 
-  void _toggleEdit() {
+  Future<void> _toggleEdit() async {
+    if (_isEditing) {
+      final user = _auth.currentUser;
+      if (user != null) {
+        try {
+          await _firestore.collection('utilisateurs').doc(user.uid).update({
+            'nom': _nomController.text,
+            'email': _emailController.text,
+            'telephone': _telephoneController.text,
+          });
+          setState(() {
+            currentUser = currentUser?.copyWith(
+              nom: _nomController.text,
+              email: _emailController.text,
+              telephone: _telephoneController.text,
+            );
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Profil mis à jour avec succès')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
+            );
+          }
+        }
+      }
+    }
     setState(() {
       _isEditing = !_isEditing;
     });
-    if (!_isEditing) {
-      // Sauvegarder les modifications si nécessaire
+  }
+
+  Future<void> _logout() async {
+    try {
+      await _auth.signOut();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('email');
+      await prefs.remove('password');
+      await prefs.remove('rememberMe');
       setState(() {
-        currentUser = currentUser?.copyWith(
-          nom: _nomController.text,
-          email: _emailController.text,
-          telephone: _telephoneController.text,
-        );
+        currentUser = null;
+        _nomController.clear();
+        _emailController.clear();
+        _telephoneController.clear();
       });
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la déconnexion: $e')),
+        );
+      }
     }
   }
 
@@ -56,22 +158,20 @@ class ParametresTabState extends State<ParametresTab> {
         return SingleChildScrollView(
           padding: EdgeInsets.all(16.0),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 600), // Limite la largeur pour les grands écrans
+            constraints: BoxConstraints(maxWidth: 600),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Titre avec animation
                 AnimatedDefaultTextStyle(
                   duration: Duration(milliseconds: 300),
                   style: TextStyle(
                     fontSize: 28.0,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
+                    color: Colors.blueGrey[700],
                   ),
                   child: Text('Paramètres'),
                 ),
                 SizedBox(height: 24.0),
-                // Card pour le profil
                 Card(
                   elevation: 4.0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
@@ -87,10 +187,11 @@ class ParametresTabState extends State<ParametresTab> {
                               'Profil Utilisateur',
                               style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.w600, color: Colors.blueGrey[700]),
                             ),
-                            IconButton(
-                              icon: Icon(_isEditing ? Icons.save : Icons.edit, color: Colors.blue),
-                              onPressed: _toggleEdit,
-                            ),
+                            if (currentUser != null)
+                              IconButton(
+                                icon: Icon(_isEditing ? Icons.save : Icons.edit, color: Colors.blue),
+                                onPressed: _toggleEdit,
+                              ),
                           ],
                         ),
                         SizedBox(height: 16.0),
@@ -108,33 +209,24 @@ class ParametresTabState extends State<ParametresTab> {
                     ),
                   ),
                 ),
-                SizedBox(height: 24.0),
-                // Bouton de déconnexion avec animation
+                SizedBox(height: 120.0),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        currentUser = null;
-                      });
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => LoginScreen()),
-                      );
-                    },
+                    onPressed: currentUser != null ? _logout : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[600],
                       padding: EdgeInsets.symmetric(vertical: 14.0),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                      disabledBackgroundColor: Colors.grey[400],
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.exit_to_app, color: Colors.white),
-                        SizedBox(width: 8.0),
+                        Icon(Icons.exit_to_app, color: Colors.blue[300]),
+                        SizedBox(width: 20.0),
                         Text(
                           'Déconnexion',
-                          style: TextStyle(fontSize: 16.0, color: Colors.white, fontWeight: FontWeight.bold),
+                          style: TextStyle(fontSize: 16.0, color: Colors.blue[300], fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -169,6 +261,7 @@ class ParametresTabState extends State<ParametresTab> {
                     fillColor: Colors.grey[100],
                   ),
                   style: TextStyle(fontSize: 16.0),
+                  enabled: currentUser != null,
                 )
               : Text(
                   '$label: ${controller.text}',
@@ -180,7 +273,6 @@ class ParametresTabState extends State<ParametresTab> {
   }
 }
 
-// Exemple de modèle User (si non défini ailleurs)
 class Utilisateur {
   final String nom;
   final String email;
